@@ -110,6 +110,23 @@ def set_interface_naming_mode(mode):
     user = os.getenv('SUDO_USER')
     bashrc_ifacemode_line = "export SONIC_CLI_IFACE_MODE={}".format(mode)
 
+    # Ensure all interfaces have an 'alias' key in PORT dict
+    config_db = ConfigDBConnector()
+    config_db.connect()
+    port_dict = config_db.get_table('PORT')
+
+    if not port_dict:
+        click.echo("port_dict is None!")
+        raise click.Abort()
+
+    for port_name in port_dict.keys():
+        try:
+            if port_dict[port_name]['alias']:
+                pass
+        except KeyError:
+            click.echo("Platform does not support alias mapping")
+            raise click.Abort()
+
     if not user:
         user = os.getenv('USER')
 
@@ -594,6 +611,15 @@ def warm_restart_bgp_timer(ctx, seconds):
     if seconds not in range(1,3600):
         ctx.fail("bgp warm restart timer must be in range 1-3600")
     db.mod_entry('WARM_RESTART', 'bgp', {'bgp_timer': seconds})
+
+@warm_restart.command('teamsyncd_timer')
+@click.argument('seconds', metavar='<seconds>', required=True, type=int)
+@click.pass_context
+def warm_restart_teamsyncd_timer(ctx, seconds):
+    db = ctx.obj['db']
+    if seconds not in range(1,3600):
+        ctx.fail("teamsyncd warm restart timer must be in range 1-3600")
+    db.mod_entry('WARM_RESTART', 'teamd', {'teamsyncd_timer': seconds})
 
 #
 # 'vlan' group ('config vlan ...')
